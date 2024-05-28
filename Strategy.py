@@ -52,9 +52,9 @@ class momentum_1h_original(Strategy):
     def open_criterion(self, data, i, direction=0):
         if direction == 0:
             # 当direction是0的时候，此时是新开仓，否则可以加仓
-            temp_price = data['close'].iloc[i]
-            temp_ma60 = data['ma60'].iloc[i]
-            temp_ma60_daily = data['ma60_daily'].iloc[i]
+            temp_price = data.loc[i, 'close']
+            temp_ma60 = data.loc[i, 'ma60']
+            temp_ma60_daily = data.loc[i, 'ma60_daily']
 
             if temp_price > temp_ma60 and temp_price > temp_ma60_daily:
                 return 0.2
@@ -65,9 +65,9 @@ class momentum_1h_original(Strategy):
         return 0
 
     def close_criterion(self, data, i, direction):
-        temp_price = data['close'].iloc[i]
-        temp_ma60 = data['ma60'].iloc[i]
-        temp_ma60_daily = data['ma60_daily'].iloc[i]
+        temp_price = self.data.loc[i, 'close']
+        temp_ma60 = data.loc[i, 'ma60']
+        temp_ma60_daily = data.loc[i, 'ma60_daily']
 
         if direction == 1:
             if temp_price < temp_ma60 or temp_price < temp_ma60_daily:
@@ -97,9 +97,9 @@ class momentum_1h_updated(Strategy):
 
     def open_criterion(self, data, i, direction=0):
         if direction == 0:
-            temp_price = data['close'].iloc[i]
-            temp_ma60 = data['ma60'].iloc[i]
-            temp_ma60_daily = data['ma60_daily'].iloc[i]
+            temp_price = data.loc[i, 'close']
+            temp_ma60 = data.loc[i, 'ma60']
+            temp_ma60_daily = data.loc[i, 'ma60_daily']
 
             if temp_price > temp_ma60 and temp_price > temp_ma60_daily:
                 return 0.2
@@ -110,9 +110,9 @@ class momentum_1h_updated(Strategy):
         return 0
 
     def close_criterion(self, data, i, direction):
-        temp_price = data['close'].iloc[i]
-        temp_ma60 = data['ma60'].iloc[i]
-        temp_ma60_daily = data['ma60_daily'].iloc[i]
+        temp_price = data.loc[i, 'close']
+        temp_ma60 = data.loc[i, 'ma60']
+        temp_ma60_daily = data.loc[i, 'ma60_daily']
 
         if direction == 1:
             if temp_price < temp_ma60 or temp_price < temp_ma60_daily:
@@ -176,18 +176,17 @@ class momentum_v3(Strategy):
         self.need_daily = False
         self.open_price = None  # 开仓价
         self.sl_price = None  # 止损价
-        self.short_time = []  # 空头时间
         self.ready_to_stop = False  # 是否准备止损
         self.wait_k_line = 0  # 等待K线数量
 
     def open_criterion(self, data, i, direction=0):
         if direction == 0:
-            temp_price = data['close'].iloc[i]
+            temp_price = data.loc[i, 'close']
             data['date'] = pd.to_datetime(data['date'])
-            temp_date = data['date'].iloc[i].date()
-            temp_ma15 = data['ma15'].iloc[i]
-            temp_ma60 = data['ma60'].iloc[i]
-            temp_underlying = data['证券代码'].iloc[i]
+            temp_date = data.loc[i, 'date'].date()
+            temp_ma15 = data.loc[i, 'ma15']
+            temp_ma60 = data.loc[i, 'ma60']
+            temp_underlying = data.loc[i, '证券代码']
 
             if self.temp_ZL != temp_underlying:
                 self.count = 0
@@ -195,35 +194,45 @@ class momentum_v3(Strategy):
             self.temp_ZL = temp_underlying
             self.count += 1
 
+            # 先找出过去30小时（交易时间）的最高和最低
             if self.count >= 30:
-                self.temp_high = data['close'].iloc[i - 29:i + 1].max()
-                self.temp_low = data['close'].iloc[i - 29:i + 1].min()
+                self.temp_high = data.loc[i - 29:i + 1, 'close'].max()
+                self.temp_low = data.loc[i - 29:i + 1, 'close'].min()
 
+                # 当价格高于ma15高于ma60且价格比过去30小时的最高还要高时 多开
                 if temp_ma60 < temp_ma15 < temp_price and temp_price >= self.temp_high:
+                    # 把止盈目标设置为接近过去3个月的最高价
                     hundred_days_ago_string = (temp_date - timedelta(days=100)).strftime("%Y-%m-%d")
                     temp_date_string = (temp_date - timedelta(days=1)).strftime("%Y-%m-%d")
                     self.long_target = THS_HQ(temp_underlying, 'close', '', hundred_days_ago_string,
                                               temp_date_string).data['close'].max() * 0.99
 
+                    # 特殊情况 当现在开仓的价格已经处于过去3个月的高点时 则不设置止盈点
                     if temp_price >= self.long_target:
                         self.long_target = float('inf')
 
-                    self.open_price = temp_price
-                    self.sl_price = -float('inf')
+                    self.open_price = temp_price  # 记录一下当前交易的开仓价格
+
+                    self.sl_price = -float('inf')  # 初始化一下止损点为负无穷 后续在检查平仓条件时会更新
+
                     return 0.3
 
+                # 当价格低于ma15低于ma60且价格比过去30小时的最低还要低时 空开
                 if temp_ma60 > temp_ma15 > temp_price and temp_price <= self.temp_low:
+                    # 把止盈目标设置为接近过去3个月的最低价
                     hundred_days_ago_string = (temp_date - timedelta(days=100)).strftime("%Y-%m-%d")
                     temp_date_string = (temp_date - timedelta(days=1)).strftime("%Y-%m-%d")
                     self.short_target = THS_HQ(temp_underlying, 'close', '', hundred_days_ago_string,
                                                temp_date_string).data['close'].min() * 1.01
 
+                    # 特殊情况 当现在开仓的价格已经处于过去3个月的低点时 则不设置止盈点
                     if temp_price <= self.short_target:
                         self.short_target = -float('inf')
 
-                    self.open_price = temp_price
-                    self.sl_price = float('inf')
-                    self.short_time.append(temp_date)
+                    self.open_price = temp_price  # 记录一下当前交易的开仓价格
+
+                    self.sl_price = float('inf')  # 初始化一下止损点为正无穷 后续在检查平仓条件时会更新
+
                     return -0.3
 
             return 0
@@ -231,13 +240,17 @@ class momentum_v3(Strategy):
         return 0
 
     def close_criterion(self, data, i, direction):
-        temp_price = data['close'].iloc[i]
-        temp_ma60 = data['ma60'].iloc[i]
+        # 获取一下当前价格和ma60
+        temp_price = data.loc[i, 'close']
 
+        temp_ma60 = data.loc[i, 'ma60']
+
+        # 引入Trailing Stop Loss机制 当当前交易赚了3%时 一定保住20%的利润 通过设定止损点来达到
         if direction == 1:
             if temp_price >= self.open_price * 1.03:
                 self.sl_price = (temp_price - self.open_price) * 0.2 + self.open_price
 
+            # 如果当前价格比止盈点位高或比ma60低或比止损点低时 平仓
             if temp_price >= self.long_target or temp_price <= temp_ma60 or temp_price <= self.sl_price:
                 return 1
 
@@ -245,6 +258,7 @@ class momentum_v3(Strategy):
             if temp_price <= self.open_price * 0.97:
                 self.sl_price = self.open_price - (self.open_price - temp_price) * 0.2
 
+            # 如果当前价格比止盈点位低或比ma60高或比止损点高时 平仓
             if temp_price <= self.short_target or temp_price >= temp_ma60 or temp_price >= self.sl_price:
                 return 1
 

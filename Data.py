@@ -101,15 +101,15 @@ class Data:
                                date_string_for_contract_info).data
 
         # 将获取到的基本信息更新到类参数中存好 方便后续调用 注意保证金的单位是% 所以要乘0.01转换为小数
-        self.long_margin = contract_info['ths_contract_long_deposit_future'].iloc[0] * 0.01
+        self.long_margin = contract_info.loc[0, 'ths_contract_long_deposit_future'] * 0.01
 
-        self.short_margin = contract_info['ths_contract_short_deposit_future'].iloc[0] * 0.01
+        self.short_margin = contract_info.loc[0, 'ths_contract_short_deposit_future'] * 0.01
 
-        self.underlying_multiplier = contract_info['ths_contract_multiplier'].iloc[0]
+        self.underlying_multiplier = contract_info.loc[0, 'ths_contract_multiplier']
 
         # 这里多加一个判断是因为可能有些合约的手续费为0 但是返回的是空值 避免产生错误 单位是千分之一 所以要乘0.001转换为小数
-        if contract_info['ths_transaction_procedure_rate_future'].iloc[0] is not None:
-            self.transaction_rate = contract_info['ths_transaction_procedure_rate_future'].iloc[0] * 0.001
+        if contract_info.loc[0, 'ths_transaction_procedure_rate_future'] is not None:
+            self.transaction_rate = contract_info.loc[0, 'ths_transaction_procedure_rate_future'] * 0.001
 
     def combine_all_data(self, strategy, start_date, end_date):
         """
@@ -282,14 +282,14 @@ class Data:
                                                ignore_index=True)
 
                 # 使用上一行的值填充缺失的值
-                temp_data_obj.data = temp_data_obj.data.ffill()
+                temp_data_obj.data = temp_data_obj.data.ffill().infer_objects(copy=False)
 
                 # 向数据开头添加夜盘开盘第一分钟k线
                 temp_data_obj.data = pd.concat([data_to_append_start.to_frame().transpose(), temp_data_obj.data],
                                                ignore_index=True)
 
                 # 使用下一行的值填充缺失的列
-                temp_data_obj.data = temp_data_obj.data.bfill()
+                temp_data_obj.data = temp_data_obj.data.bfill().infer_objects(copy=False)
 
             # 这里是先把当前的时间戳保存下来 因为后续跟日频数据合并时 是要转换成日
             # 具体来说 现在的时间戳形如2023-01-01 09:00:00 但如果想要添加日频均线则需要 转换成2023-01-01
@@ -407,7 +407,7 @@ class Data:
         data[f'ma{n}'] = data['close'].rolling(window=n, min_periods=n).mean().round(1)  # shift?
 
         # because the first n-1 data points can not find n previous data to look back so fill the missing value with 0
-        data.fillna(0)
+        data.fillna(0).infer_objects(copy=False)
 
 
     def EMA(self, n):
@@ -439,7 +439,7 @@ class Data:
         data[f'std{n}'] = data['close'].rolling(window=n, min_periods=n).std().round(1)
 
         # because the first n-1 data points can not find n previous data to look back so fill the missing value with 0
-        data.fillna(0)
+        data.fillna(0).infer_objects(copy=False)
 
 
     def TR(self):
@@ -470,7 +470,7 @@ class Data:
         data[f'atr{n}'] = data['tr'].rolling(window=n, min_periods=n).mean().round(1)
 
         # because the first n-1 data points can not find n previous data to look back so fill the missing value with 0
-        data.fillna(0)
+        data.fillna(0).infer_objects(copy=False)
 
 
     def Bollinger_band(self, n):
@@ -501,27 +501,27 @@ class Data:
 
         data['date'] = pd.to_datetime(data['date'])
 
-        temp_date = data['date'].iloc[0].date
+        temp_date = data.loc[0, 'date'].date
 
         data['vwap'] = np.nan
 
-        data['vwap'].iloc[0] = data['close'].iloc[0]
+        data.loc[0, 'vwap'] = data.loc[0, 'close']
 
-        cumulative_volume = data['volume'].iloc[0]
+        cumulative_volume = data.loc[0, 'volume']
 
-        cumulative_vol_times_price = data['volume'].iloc[0] * data['close'].iloc[0]
+        cumulative_vol_times_price = data.loc[0, 'volume'] * data.loc[0, 'close']
 
         for i in range(1, len(data)):
-            current_date = data['date'].iloc[i].date
+            current_date = data.loc[i, 'date'].date
             if current_date != temp_date:
                 temp_date = current_date
-                data['vwap'].iloc[i] = data['close'].iloc[i]
-                cumulative_volume = data['volume'].iloc[i]
-                cumulative_vol_times_price = data['volume'].iloc[i] * data['close'].iloc[i]
+                data.loc[i, 'vwap'] = data.loc[i, 'close']
+                cumulative_volume = data.loc[i, 'volume']
+                cumulative_vol_times_price = data.loc[i, 'volume'] * data.loc[i, 'close']
                 continue
-            cumulative_volume += data['volume'].iloc[i]
-            cumulative_vol_times_price += data['volume'].iloc[i] * data['close'].iloc[i]
-            data['vwap'].iloc[i] = cumulative_vol_times_price / cumulative_volume
+            cumulative_volume += data.loc[i, 'volume']
+            cumulative_vol_times_price += data.loc[i, 'volume'] * data.loc[i, 'close']
+            data.loc[i, 'vwap'] = cumulative_vol_times_price / cumulative_volume
 
         data['vwap'] = round(data['vwap'], 2)
 
@@ -545,7 +545,7 @@ class Data:
             if count == 9:
 
                 for k in range(9):
-                    data['magic_nine_turn'].iloc[start + k] = int(k + 1)
+                    data.loc[start + k, 'magic_nine_turn'] = int(k + 1)
 
                 count = 0
 
@@ -565,7 +565,7 @@ class Data:
 
                 temp_direction = 1
 
-            data['magic_nine_turn'].iloc[i] = 0
+            data.loc[i, 'magic_nine_turn'] = 0
 
             if direction == 0:
                 direction = temp_direction

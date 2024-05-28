@@ -46,7 +46,7 @@ class Backtest:
 
         self.long_margin = self.underlying.long_margin  # 当前标的开多的保证金比例 因为每次计算时都要访问 所以通过类变量储存
 
-        self.short_margin = self.underlying.short_margin # 当前标的开空的保证金比例
+        self.short_margin = self.underlying.short_margin  # 当前标的开空的保证金比例
 
         self.underlying_multiplier = self.underlying.underlying_multiplier  # 当前标的的合约乘数 如铁矿石是100
 
@@ -76,13 +76,16 @@ class Backtest:
             # 检查当前是空开还是多开 相应在交易记录和数据中做标记 方便后续画图统计 用temp_margin记录当前交易需要的保证金比例
             if self.signal == -1:
                 self.trading_details['direction'].append(-1)
-                self.data['direction'].iloc[i] = self.signal
-                self.data['sign'].iloc[i] = '空开'
+                self.data.loc[i, 'direction'] = self.signal
+                # self.data.loc[i, 'direction'] = self.signal
+                self.data.loc[i, 'sign'] = '空开'
+                # self.data.loc[i, 'sign'] = '空开'
                 temp_margin = self.short_margin
             if self.signal == 1:
                 self.trading_details['direction'].append(1)
-                self.data['direction'].iloc[i] = self.signal
-                self.data['sign'].iloc[i] = '多开'
+                self.data.loc[i, 'direction'] = self.signal
+                self.data.loc[i, 'sign'] = '多开'
+                # self.data.loc[i, 'sign'] = '多开'
                 temp_margin = self.long_margin
 
             # 记录当前开仓价格和开仓时间
@@ -109,22 +112,22 @@ class Backtest:
 
             # 将当前开仓大小分别记录在trading detials和数据中
             self.trading_details['size'] = temp_size
-            self.data['size'].iloc[i] = temp_size
+            self.data.loc[i, 'size'] = temp_size
 
         else:
-            self.data['sign'].iloc[i] = '加仓'
+            self.data.loc[i, 'sign'] = '加仓'
             if self.signal == -1:
                 self.trading_details['direction'].append(-1)
-                self.data['direction'].iloc[i] = self.signal
+                self.data.loc[i, 'direction'] = self.signal
                 temp_margin = self.short_margin
             if self.signal == 1:
                 self.trading_details['direction'].append(1)
-                self.data['direction'].iloc[i] = self.signal
+                self.data.loc[i, 'direction'] = self.signal
                 temp_margin = self.long_margin
 
             self.trading_details['open time'].append(temp_date)
 
-            previous_size = self.data['size'].iloc[i - 1]
+            previous_size = self.data.loc[i-1, 'size']
 
             previous_cost = self.trading_details['open'][-1]
 
@@ -150,7 +153,7 @@ class Backtest:
 
             # 将当前开仓大小分别记录在trading detials和数据中
             self.trading_details['size'] = total_size
-            self.data['size'].iloc[i] = self.trading_details['size']
+            self.data.loc[i, 'size'] = self.trading_details['size']
 
     def close_position(self, temp_price, temp_date, i, reduce_size):
         """
@@ -175,9 +178,9 @@ class Backtest:
 
             # 在数据中给当前时间步打上标记 方便画图
             if self.signal == -1:
-                self.data['sign'].iloc[i] = '空平'
+                self.data.loc[i, 'sign'] = '空平'
             if self.signal == 1:
-                self.data['sign'].iloc[i] = '多平'
+                self.data.loc[i, 'sign'] = '多平'
 
             # 确定全部平仓后 把持仓信号改为0
             self.signal = 0
@@ -188,7 +191,7 @@ class Backtest:
             else:
                 temp_sell_size = reduce_size
 
-            self.data['sign'].iloc[i] = '减仓'
+            self.data.loc[i, 'sign'] = '减平'
 
         # 当前调整合约数*（当前价格-开仓价格）*合约乘数 计算当前调仓后的收益/损失
         tmep_amount = (temp_sell_size * (temp_price - self.trading_details['open'][-1])) * self.underlying_multiplier
@@ -226,7 +229,7 @@ class Backtest:
         else:
             self.trading_details['size'] = 0
 
-        self.data['size'].iloc[i] = self.trading_details['size']
+        self.data.loc[i, 'size'] = self.trading_details['size']
 
         # 将收益累加到trading detials中
         self.trading_details['total profit'] += temp_profit
@@ -238,7 +241,7 @@ class Backtest:
 
         self.trading_details['pnl'].append(temp_result - temp_fee)
 
-        self.data['pnl'].iloc[i] = (temp_result - temp_fee)
+        self.data.loc[i, 'pnl'] = (temp_result - temp_fee)
 
     def check_transfer(self, i):
         """
@@ -251,16 +254,16 @@ class Backtest:
         """
 
         # 获取当前时间步的主力合约代码和下一个时间步的主力合约代码
-        temp_dominant = self.data['证券代码'].iloc[i]
+        temp_dominant = self.data.loc[i, '证券代码']
 
-        next_dominant = self.data['证券代码'].iloc[i + 1]
+        next_dominant = self.data.loc[i+1, '证券代码']
 
         # 如果这两个主力合约代码不一样且当前有持仓 那么需要换月
         if temp_dominant != next_dominant and self.signal != 0:
             # 换月的逻辑是先平再开 记录当前平仓价格和时间
-            temp_price = self.data['close'].iloc[i]
+            temp_price = self.data.loc[i, 'close']
 
-            temp_date = self.data['date'].iloc[i]
+            temp_date = self.data.loc[i, 'date']
 
             # 保存当前仓位大小和方向给下一时间步开仓用
             self.next_open_size = self.trading_details['size']
@@ -285,7 +288,7 @@ class Backtest:
 
         self.trading_details['pnl'].append(temp_net)
 
-        self.data['pnl'].iloc[i] = temp_net
+        self.data.loc[i, 'pnl'] = temp_net
 
         temp_cumulative_return = self.trading_details['cumulative_return'][-1]
 
@@ -310,7 +313,7 @@ class Backtest:
 
         self.trading_details['pnl'].append(temp_result)
 
-        self.data['pnl'].iloc[i] = temp_result
+        self.data.loc[i, 'pnl'] = temp_result
 
         temp_cumulative_return = self.trading_details['cumulative_return'][-1]
 
@@ -334,9 +337,9 @@ class Backtest:
         close = data['close'].tolist()
 
         # 边界情况 要把第一个时间戳放进来 跟初始状态对齐 因为在画出收益曲线时 第一个点一定要是第一个时间戳和初始账户余额
-        self.trading_details['close time'].append(data['date'].iloc[0])
+        self.trading_details['close time'].append(data.loc[0, 'date'])
 
-        data['pnl'].iloc[0] = self.trading_details['balance'][0]
+        data.loc[0, 'pnl'] = self.trading_details['balance'][0]
 
         # 开始遍历每一个时间步
         for i in range(len(close)):
@@ -344,7 +347,7 @@ class Backtest:
             # 获取当前收盘价和时间
             temp_price = close[i]
 
-            temp_date = data['date'].iloc[i]
+            temp_date = data.loc[i, 'date']
 
             # 先检查是否换月了 因为有可能出现下一个主力合约并没有触发开仓条件 但是必须要把仓位换过来
             if self.force_open_signal == 1:
@@ -374,13 +377,13 @@ class Backtest:
                 if open_size == 0:
 
                     # 向data中填充相应指示 保留当前持仓不变
-                    self.data['sign'].iloc[i] = '无操作'
+                    self.data.loc[i, 'sign'] = '无操作'
 
-                    self.data['size'].iloc[i] = self.trading_details['size']
+                    self.data.loc[i, 'size'] = self.trading_details['size']
 
                     self.trading_details['direction'].append(0)
 
-                    self.data['direction'].iloc[i] = 0
+                    self.data.loc[i, 'direction'] = 0
 
                     # 多加一个判断条件 防止第一个时间步不开仓时引起索引出界
                     if i >= 1:
@@ -407,7 +410,7 @@ class Backtest:
             # 当有持仓时 更新一下trading details中的持仓方向
             self.trading_details['direction'].append(self.signal)
 
-            self.data['direction'].iloc[i] = self.signal
+            self.data.loc[i, 'direction'] = self.signal
 
             # 检查是否换月 如果需要换月 那就不需要再看后面的条件 直接强平
             if i < len(close) - 1:
@@ -444,9 +447,9 @@ class Backtest:
                         self.open_position(temp_price, temp_date, i, abs(temp_reverse_size))
 
                         if temp_reverse_size > 0:
-                            self.data['sign'].iloc[i] = '空平+多开'
+                            self.data.loc[i, 'sign'] = '空平+多开'
                         else:
-                            self.data['sign'].iloc[i] = '多平+空开'
+                            self.data.loc[i, 'sign'] = '多平+空开'
 
                         self.keep_pnl(i)
 
@@ -455,7 +458,6 @@ class Backtest:
                 temp_add_size = self.strategy.open_criterion(data, i, self.signal)
 
                 if temp_add_size != 0:
-
                     self.open_position(temp_price, temp_date, i, temp_add_size, add_up=True)
 
                     self.adjust_pnl(temp_price, i)
@@ -463,9 +465,9 @@ class Backtest:
                     continue
 
             # 如果运行到这里表明当前有仓位但不触发调仓信号
-            self.data['sign'].iloc[i] = '无操作'
+            self.data.loc[i, 'sign'] = '无操作'
 
-            self.data['size'].iloc[i] = self.trading_details['size']
+            self.data.loc[i, 'size'] = self.trading_details['size']
 
             if i >= 1:
                 # 要计算浮盈浮亏 所以调用adjust pnl
@@ -495,7 +497,7 @@ class Backtest:
 
         selected_columns = ['证券代码', 'date', 'open', 'high', 'low', 'close', 'change_ratio'] + indicator_to_draw + [
             'sign', 'size', 'direction',
-            'pnl'] # 'ma60_daily',
+            'pnl']  # 'ma60_daily',
 
         selected_data = self.data[selected_columns]
 
@@ -503,7 +505,7 @@ class Backtest:
 
         color_index = selected_data.columns.get_loc('sign')
 
-        selected_data['change_ratio'] = round(selected_data['change_ratio'], 2)/100
+        selected_data['change_ratio'] = round(selected_data['change_ratio'], 2) / 100
 
         selected_data['change_ratio'] = np.array(["{:.2%}".format(num) for num in selected_data['change_ratio']])
 
@@ -556,5 +558,6 @@ class Backtest:
             os.makedirs(trading_details_directory)
 
         # 保存excel文件到指定文件夹
-        output_file_path = os.path.join(trading_details_directory, f'{self.strategy.name}_for_{self.underlying.code}.xlsx')
+        output_file_path = os.path.join(trading_details_directory,
+                                        f'{self.strategy.name}_for_{self.underlying.code}.xlsx')
         wb.save(output_file_path)
